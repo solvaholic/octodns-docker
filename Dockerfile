@@ -23,12 +23,13 @@ FROM python:2-alpine as build
 RUN apk update
 RUN apk add git bash build-base libffi-dev openssl-dev
 
-# Install and bootstrap octodns.
+# Bootstrap and install octodns.
 WORKDIR /
 RUN git clone https://github.com/github/octodns.git octodns
 WORKDIR /octodns
-RUN pip install . boto3 virtualenv
+RUN pip install virtualenv
 RUN ./script/bootstrap
+RUN source env/bin/activate && pip install .
 
 # Set entry point and environment variables.
 ENTRYPOINT ["/bin/sh"]
@@ -59,4 +60,7 @@ WORKDIR /
 RUN git clone https://github.com/github/octodns.git octodns
 WORKDIR /octodns
 RUN git checkout tags/v0.9.4
-RUN pip install . boto3
+RUN pip install virtualenv
+RUN virtualenv env
+RUN source env/bin/activate
+RUN pip install .
