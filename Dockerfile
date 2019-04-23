@@ -1,66 +1,65 @@
-# This Dockerfile describes three build targets:
+# This Dockerfile describes two build targets:
 #
-# **[build] Set up dependencies required for contributing to `github/octodns`.**
-#
-#     docker build --rm --target build -t octodns:build .
-#     docker run --rm -it octodns:build
-#
-# **[dev] Like `build`, but map your local clone of octodns.**
-#
-#     docker build --rm --target dev -t octodns:dev .
-#     docker run --rm -it -v $(realpath .)/octodns:/octodns octodns:dev
-#
-# **[run] Current release of `github/octodns`. Map your config directory.**
+# **[run] Python for running your octodns clone and config.**
 #
 #     docker build --rm --target run -t octodns:latest .
-#     docker run --rm -it -v $(realpath .)/config:/config octodns
+#
+# This image expects you to mount your clone of `github/octodns` and your
+# config directory. Remember to define PIP_EXTRAS and any environment
+# variables your sources and providers require:
+#
+#     cd ~/repos/dns
+#     myconfig="$(realpath .)/config"
+#     myoctodns="$(realpath .)/../octodns"
+#     myenv=".env"
+#     docker run -it --rm --env-file="${myenv}" -v "${myconfig}":/config:ro \
+#       -v "${myoctodns}":/octodns octodns:latest
+#
+# **[build] Include dependencies required for contributing to `github/octodns`.**
+#
+#     docker build --rm --target build -t octodns:build .
+#
+# This image expects you to mount your clone of `github/octodns` and your
+# config directory. Remember to define PIP_EXTRAS and any environment
+# variables your sources and providers require:
+#
+#     cd ~/repos/octodns
+#     myoctodns="$(realpath .)"
+#     docker run -it --rm -v "${myoctodns}":/octodns octodns:build
 
 
-# BUILD : Clones octodns and verifies all build dependencies.
-FROM python:2-alpine as build
 
-# Install required packages.
-RUN apk update
-RUN apk add git bash build-base libffi-dev openssl-dev
-
-# Bootstrap and install octodns.
-WORKDIR /
-RUN git clone https://github.com/github/octodns.git octodns
-WORKDIR /octodns
-RUN pip install virtualenv
-RUN ./script/bootstrap
-RUN source env/bin/activate && pip install .
-
-# Set entry point and environment variables.
-ENTRYPOINT ["/bin/sh"]
+# TODO: Why are there 0 tests to run in the :build image?
 
 
-# DEV : Includes build and test dependencies. Map local octodns clone.
-FROM build as dev
-RUN rm -rf /octodns
-
-# Set entry point and environment variables.
-ENTRYPOINT ["/bin/sh"]
-VOLUME ["/octodns"]
-
-
-# RUN : Includes latest octodns release. Map local config directory.
+# RUN : Map your octodns clone and your config directory.
 FROM python:2-alpine as run
 
 # Install required packages.
 RUN apk update
 RUN apk add git
 
-# Set entry point and environment variables.
-ENTRYPOINT ["/bin/sh"]
-VOLUME ["/config"]
-
-# Install octodns.
+# Install virtualenv.
 WORKDIR /
-RUN git clone https://github.com/github/octodns.git octodns
-WORKDIR /octodns
-RUN git checkout tags/v0.9.4
 RUN pip install virtualenv
-RUN virtualenv env
-RUN source env/bin/activate
-RUN pip install .
+RUN virtualenv /env
+
+# Set entry point and environment variables.
+ENV VENV_NAME /env
+VOLUME ["/config"]
+VOLUME ["/octodns"]
+ENTRYPOINT ["/bin/sh"]
+
+# When you run this container, `pip install` /octodns and ${PIP_EXTRAS}.
+CMD ["-c", "source /env/bin/activate && pip install /octodns ${PIP_EXTRAS} && /bin/sh"]
+
+
+
+# BUILD : Add build dependencies for testing octodns.
+FROM run as build
+
+# Install required packages.
+RUN apk add git bash build-base libffi-dev openssl-dev
+
+# When you run this container, run octodns/script/bootstrap.
+CMD ["-c", "source /env/bin/activate && /octodns/script/bootstrap && /bin/sh"]
