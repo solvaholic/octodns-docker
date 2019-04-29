@@ -28,16 +28,8 @@
 #     docker run -it --rm -v "${myoctodns}":/octodns octodns:build
 
 
-
-# TODO: Why are there 0 tests to run in the :build image?
-
-
 # RUN : Map your octodns clone and your config directory.
-FROM python:2-alpine as run
-
-# Install required packages.
-RUN apk update
-RUN apk add git
+FROM python:2-slim as run
 
 # Install virtualenv.
 WORKDIR /
@@ -48,18 +40,14 @@ RUN virtualenv /env
 ENV VENV_NAME /env
 VOLUME ["/config"]
 VOLUME ["/octodns"]
-ENTRYPOINT ["/bin/sh"]
+ENTRYPOINT ["/bin/bash"]
 
-# When you run this container, `pip install` /octodns and ${PIP_EXTRAS}.
-CMD ["-c", "source /env/bin/activate && pip install /octodns ${PIP_EXTRAS} && /bin/sh"]
+# Running this container will pip install /octodns and ${PIP_EXTRAS}.
+CMD ["-c", "source /env/bin/activate && pip install /octodns ${PIP_EXTRAS} && /bin/bash"]
 
 
-
-# BUILD : Add build dependencies for testing octodns.
+# BUILD : Map your octodns clone.
 FROM run as build
 
-# Install required packages.
-RUN apk add git bash build-base libffi-dev openssl-dev
-
-# When you run this container, run octodns/script/bootstrap.
-CMD ["-c", "source /env/bin/activate && /octodns/script/bootstrap && /bin/sh"]
+# Running this container runs octodns/script/bootstrap.
+CMD ["-c", "source /env/bin/activate && /octodns/script/bootstrap && /bin/bash"]
